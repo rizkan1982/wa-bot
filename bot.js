@@ -1,4 +1,8 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys')
+const {
+    default: makeWASocket,
+    useMultiFileAuthState,
+    DisconnectReason
+} = require('@whiskeysockets/baileys')
 const qrcode = require('qrcode-terminal')
 
 async function startBot() {
@@ -6,13 +10,21 @@ async function startBot() {
 
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: true,
+        // printQRInTerminal sudah deprecated → jangan dipakai lagi
     })
 
+    // simpan kredensial
     sock.ev.on('creds.update', saveCreds)
 
+    // handle koneksi & QR
     sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update
+        const { connection, lastDisconnect, qr } = update
+
+        if (qr) {
+            // kalau butuh scan ulang → tampilkan QR di terminal
+            qrcode.generate(qr, { small: true })
+        }
+
         if (connection === 'close') {
             const reason = lastDisconnect?.error?.output?.statusCode
             if (reason !== DisconnectReason.loggedOut) {
@@ -26,14 +38,14 @@ async function startBot() {
         }
     })
 
+    // handle pesan masuk
     sock.ev.on('messages.upsert', async (msg) => {
         try {
             const message = msg.messages[0]
-            if (!message.message || message.key.fromMe) return
+            if (!message?.message || message.key.fromMe) return
 
             const from = message.key.remoteJid
 
-            // cek teks dari berbagai tipe pesan
             const text =
                 message.message.conversation ||
                 message.message.extendedTextMessage?.text ||
@@ -54,7 +66,7 @@ async function startBot() {
             } else if (lower.includes('hukum') || lower.includes('masalah')) {
                 await sock.sendMessage(from, { text: "AK law firm hubungi pak irwan / buayin ‪+62 813-6418-7124‬" })
             } else if (lower.includes('ketemu')) {
-                await sock.sendMessage(from, { text: "boleh hubungi candra / irva , candra : ‪+62 831-7908-5515‬ irfa : ‪+62 857-5864-6002" })
+                await sock.sendMessage(from, { text: "boleh hubungi candra / irva , candra : ‪+62 831-7908-5515‬ irfa : ‪+62 857-5864-6002" })
             }
         } catch (e) {
             console.error('❗ Error handle message:', e)
